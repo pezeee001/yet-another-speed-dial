@@ -75,9 +75,9 @@ function createBookmarkFromBrowser(tab) {
 
 function handleBrowserAction(tab) {
     createBookmarkFromBrowser(tab)
-    browser.browserAction.disable(tab.id);
-    browser.browserAction.setBadgeText({text:"✅️", tabId:tab.id})
-    browser.browserAction.setBadgeBackgroundColor({color: [0, 0, 0, 0]});
+    browser.action.disable(tab.id);
+    browser.action.setBadgeText({text:"✅️", tabId:tab.id})
+    browser.action.setBadgeBackgroundColor({color: [0, 0, 0, 0]});
 }
 
 function onClickHandler(info, tab) {
@@ -485,7 +485,7 @@ function connected(p) {
         messagePorts.splice(i, 1);
     });
 
-    browser.browserAction.disable(p.sender.tab.id);
+    browser.action.disable(p.sender.tab.id);
 }
 
 function handleInstalled(details) {
@@ -513,7 +513,7 @@ function init() {
     browser.bookmarks.onRemoved.addListener(removeBookmark);
     browser.contextMenus.onClicked.addListener(onClickHandler);
 
-    browser.browserAction.onClicked.addListener(handleBrowserAction);
+    browser.action.onClicked.addListener(handleBrowserAction);
 
     // build a thumbnail cache of url:thumbUrl pairs
     browser.storage.local.get().then(result => {
