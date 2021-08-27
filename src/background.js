@@ -2,6 +2,8 @@
 // copyright 2019 dev@conceptualspace.net
 // absolutely no warranty is expressed or implied
 
+// todo: https://developer.chrome.com/docs/extensions/mv3/migrating_to_service_workers/
+
 'use strict';
 
 let messagePorts = [];
