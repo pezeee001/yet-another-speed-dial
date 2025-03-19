@@ -1650,6 +1650,30 @@ previewOverlay.onclick = function() {
     imgInput.click();
 }
 
+document.getElementById('addImageUrl').addEventListener('click', function(event) {
+    event.preventDefault();
+    document.getElementById('imageUploadContainer').style.display = 'none';
+    document.getElementById('imageUrlContainer').style.display = 'block';
+});
+
+
+document.getElementById('addImageUrlButton').addEventListener('click', function(event) {
+    //resizeThumb(image).then(resizedImage => {
+    //    addImage(resizedImage);
+    //})
+    event.preventDefault();
+    const imageUrlInput = document.getElementById('imageUrlInput').value;
+    if (imageUrlInput) {
+        resizeThumb(imageUrlInput).then(resizedImage => {
+            addImage(resizedImage);
+        }).catch(error => {
+            console.error('Error adding image from URL:', error);
+        });
+    }
+});
+
+// todo
+
 function prepareExport() {
     browser.storage.local.get(null).then(function(items) {
         // filter out unused thumbnails to keep exported file efficient

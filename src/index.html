@@ -76,14 +76,32 @@
             <input accept="image/*" class="settingsCtl" id="modalImgFile" type="file">
 
             <div class="formItem" id="modalImgContainer"></div>
-            <div class="imageUploadContainer"><label class="settingsCtl modalImgBtn" data-locale="uploadImage"
-                                                     for="modalImgFile">Add Image ...</label></div>
-            <div class="formItem">
-                <button class="save" data-locale="save" id="modalSave">Save</button>
-            </div>
-            <div class="formItem">
-                <button class="close" data-locale="cancel">Cancel</button>
-            </div>
+            
+
+
+
+            <div class="buttonContainer">
+                <div class="formItem">
+                    <button class="action" id="addImageUrl"><svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#e3e3e3"><path d="M440-320v-326L336-542l-56-58 200-200 200 200-56 58-104-104v326h-80ZM240-160q-33 0-56.5-23.5T160-240v-120h80v120h480v-120h80v120q0 33-23.5 56.5T720-160H240Z"/></svg>
+                        Image</button>
+                </div>
+                <div class="formItem">
+                    <button class="action" id="addImageUrlButton" ><svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#e3e3e3"><path d="M440-280H280q-83 0-141.5-58.5T80-480q0-83 58.5-141.5T280-680h160v80H280q-50 0-85 35t-35 85q0 50 35 85t85 35h160v80ZM320-440v-80h320v80H320Zm200 160v-80h160q50 0 85-35t35-85q0-50-35-85t-85-35H520v-80h160q83 0 141.5 58.5T880-480q0 83-58.5 141.5T680-280H520Z"/></svg>
+                        Image URL</button>
+                </div>
+                <div class="formItem">
+                    <button class="action" ><svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#e3e3e3"><path d="M120-120v-190l358-358-58-56 58-56 76 76 124-124q5-5 12.5-8t15.5-3q8 0 15 3t13 8l94 94q5 6 8 13t3 15q0 8-3 15.5t-8 12.5L705-555l76 78-57 57-56-58-358 358H120Zm80-80h78l332-334-76-76-334 332v78Zm447-410 96-96-37-37-96 96 37 37Zm0 0-37-37 37 37Z"/></svg> BG Color</button>
+                </div>
+            </div> 
+            
+            <div class="buttonContainer">
+                <div class="formItem">
+                    <button class="close" data-locale="cancel">Cancel</button>
+                </div>
+                <div class="formItem ">
+                    <button class="save" data-locale="save" id="modalSave">Save</button>
+                </div>
+            </div>  
         </form>
     </div>
 </div>
