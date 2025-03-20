@@ -1,5 +1,5 @@
 name: Scheduled Merge Remote Action
-on: "workflow_dispatch"
+on: workflow_dispatch
 #   schedule:
 #     - cron: '0 0 1 * *'
 
@@ -8,9 +8,9 @@ jobs:
     runs-on: ubuntu-latest
     steps: 
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
-          ref: upstream             # set the branch to merge to
+          ref: master             # set the branch to merge to
           fetch-depth: 0 
       - name: Merge Upstream
         uses: discdiver/merge-from-upstream-repo@v0.0.9
@@ -18,5 +18,5 @@ jobs:
           useremail: "41898282+github-actions[bot]@users.noreply.github.com"
           username: "github-actions[bot]"
           upstream: conceptualspace/yet-another-speed-dial
-          upstream-branch: main
-          branch: main
+          upstream-branch: master
+          branch: master
