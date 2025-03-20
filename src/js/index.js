@@ -52,6 +52,10 @@ const modalTitle = document.getElementById("modalTitle");
 const modalURL = document.getElementById("modalURL");
 const modalImgContainer = document.getElementById("modalImgContainer");
 const modalImgInput = document.getElementById("modalImgFile");
+const modalImgBtn = document.getElementById("modalImgBtn");
+const modalImgUrlBtn = document.getElementById("modalImgUrlBtn");
+const modalImageURLInput = document.getElementById("modalImageURLInput");
+const fetchImageButton = document.getElementById("fetchImageButton");
 const noBookmarks = document.getElementById('noBookmarks');
 
 // settings sidebar
@@ -706,6 +710,10 @@ function hideModals() {
             el.style.transform = "translateX(100%)";
         }, 160);
     }
+
+        // Reset modalBtnContainer and imageUrlContainer
+        document.getElementById('modalBtnContainer').style.display = 'flex';
+        document.getElementById('imageUrlContainer').style.display = 'none';
 }
 
 function modalShowEffect(contentEl, modalEl) {
@@ -1558,7 +1566,12 @@ createDialModalURL.addEventListener('keydown', e => {
     }
 });
 
+modalImgBtn.addEventListener('click', function() {
+    document.getElementById('modalImgFile').click();
+});
+
 modalImgInput.onchange = function () {
+    console.log("modalImgInput");
     readImage(this).then(image => {
         resizeThumb(image).then(resizedImage => {
             addImage(resizedImage);
@@ -1649,6 +1662,32 @@ imgInput.onchange = function () {
 previewOverlay.onclick = function() {
     imgInput.click();
 }
+
+modalImgUrlBtn.addEventListener('click', function(event) {
+    event.preventDefault();
+    document.getElementById('modalBtnContainer').style.display = 'none';
+    document.getElementById('imageUrlContainer').style.display = 'flex';
+    modalImageURLInput.focus();
+});
+
+
+fetchImageButton.addEventListener('click', function(event) {
+    //resizeThumb(image).then(resizedImage => {
+    //    addImage(resizedImage);
+    //})
+    event.preventDefault();
+    const imageUrl = modalImageURLInput.value.trim();
+    if (imageUrl) {
+        resizeThumb(imageUrl).then(resizedImage => {
+            addImage(resizedImage);
+        }).catch(error => {
+            console.error('Error adding image from URL:', error);
+        });
+    }
+});
+
+
+// todo
 
 function prepareExport() {
     browser.storage.local.get(null).then(function(items) {
