@@ -52,6 +52,13 @@ const modalTitle = document.getElementById("modalTitle");
 const modalURL = document.getElementById("modalURL");
 const modalImgContainer = document.getElementById("modalImgContainer");
 const modalImgInput = document.getElementById("modalImgFile");
+const modalImgBtn = document.getElementById("modalImgBtn");
+const modalImgUrlBtn = document.getElementById("modalImgUrlBtn");
+const modalImageURLInput = document.getElementById("modalImageURLInput");
+const fetchImageButton = document.getElementById("fetchImageButton");
+const modalBgColorPickerInput = document.getElementById("modalBgColorPickerInput");
+const modalBgColorPickerBtn = document.getElementById("modalBgColorPickerBtn");
+const modalBgColorPreview = document.getElementById("modalBgColorPreview");
 const noBookmarks = document.getElementById('noBookmarks');
 
 // settings sidebar
@@ -136,9 +143,9 @@ let defaults = {
     dialRatio: 'wide'
 };
 
-const debounce = (func, delay= 500, immediate=false) => {
+const debounce = (func, delay = 500, immediate = false) => {
     let inDebounce
-    return function() {
+    return function () {
         const context = this
         const args = arguments
         if (immediate && !inDebounce) {
@@ -152,10 +159,10 @@ const debounce = (func, delay= 500, immediate=false) => {
 }
 
 // detect clock settings
-hourCycle = Intl.DateTimeFormat(locale, {hour: 'numeric'}).resolvedOptions().hourCycle;
+hourCycle = Intl.DateTimeFormat(locale, { hour: 'numeric' }).resolvedOptions().hourCycle;
 
 function displayClock() {
-    clock.textContent = new Date().toLocaleString('en-US', {hour: 'numeric', minute: 'numeric', hourCycle: hourCycle});
+    clock.textContent = new Date().toLocaleString('en-US', { hour: 'numeric', minute: 'numeric', hourCycle: hourCycle });
     setTimeout(displayClock, 10000);
 }
 
@@ -175,7 +182,7 @@ function getBookmarks(folderId) {
 
 function removeBookmark(url) {
     let currentParent = currentFolder ? currentFolder : speedDialId
-    browser.bookmarks.search({url})
+    browser.bookmarks.search({ url })
         .then(bookmarks => {
             let cleanup = bookmarks.length < 2;
             for (let bookmark of bookmarks) {
@@ -200,7 +207,7 @@ function moveFolder(id, oldIndex, newIndex, newSiblingId) {
 
     function move(id, options) {
         browser.bookmarks.move(id, options).then(result => {
-            tabMessagePort.postMessage({refreshInactive: true})
+            tabMessagePort.postMessage({ refreshInactive: true })
         }).catch(err => {
             console.log(err);
         })
@@ -231,7 +238,7 @@ function moveBookmark(id, fromParentId, toParentId, oldIndex, newIndex, newSibli
 
     function move(id, options) {
         browser.bookmarks.move(id, options).then(result => {
-            tabMessagePort.postMessage({refreshInactive: true});
+            tabMessagePort.postMessage({ refreshInactive: true });
         }).catch(err => {
             console.log(err);
         });
@@ -346,7 +353,7 @@ function folderLink(title, id) {
         currentFolder = id;
         scrollPos = 0;
         bookmarksContainerParent.scrollTop = scrollPos;
-        chrome.storage.local.set({currentFolder: id});
+        chrome.storage.local.set({ currentFolder: id });
         //tabMessagePort.postMessage({currentFolder: id});
     };
 
@@ -395,10 +402,10 @@ function editFolder() {
 
 function refreshThumbnails(url) {
     //tabMessagePort.postMessage({refreshThumbs: true, url});
-    
+
     toastContent.innerText = ` Capturing images...`;
     toast.style.transform = "translateX(0%)";
-    chrome.runtime.sendMessage({target: 'background', type: 'refreshThumbs', data: {url}});
+    chrome.runtime.sendMessage({ target: 'background', type: 'refreshThumbs', data: { url } });
 }
 
 function removeFolder() {
@@ -427,7 +434,7 @@ function getChildren(folderId) {
 function refreshAllThumbnails() {
     let urls = [];
     let parent = currentFolder ? currentFolder : speedDialId;
-    
+
     hideModals();
 
     browser.bookmarks.getChildren(parent).then(children => {
@@ -438,7 +445,7 @@ function refreshAllThumbnails() {
                 }
             }
             //tabMessagePort.postMessage({refreshAll: true, urls});
-            chrome.runtime.sendMessage({target: 'background', type: 'refreshAllThumbs', data: {urls}});
+            chrome.runtime.sendMessage({ target: 'background', type: 'refreshAllThumbs', data: { urls } });
             toastContent.innerText = ` Capturing images...`;
             toast.style.transform = "translateX(0%)";
         }
@@ -469,7 +476,7 @@ async function printBookmarks(bookmarks, parentId) {
                     folderLink(bookmark.title, bookmark.id)
                 } else {
                     let el = document.querySelector(`[folderid="${bookmark.id}"]`);
-                    if (el) {el.innerText = bookmark.title}
+                    if (el) { el.innerText = bookmark.title }
                 }
 
             } else if (bookmark.url && bookmark.url.startsWith("http")) {
@@ -706,6 +713,10 @@ function hideModals() {
             el.style.transform = "translateX(100%)";
         }, 160);
     }
+
+    // Reset modalBtnContainer and imageUrlContainer
+    document.getElementById('modalBtnContainer').style.display = 'flex';
+    document.getElementById('imageUrlContainer').style.display = 'none';
 }
 
 function modalShowEffect(contentEl, modalEl) {
@@ -748,16 +759,25 @@ async function buildModal(url, title) {
     let images = await getThumbs(url);
     if (images && images.thumbnails.length) {
         // clunky af
-        // todo: support adding a custom image
         let index = images.thumbIndex;
         let imgDiv = document.createElement('div');
         let img = document.createElement('img');
         img.crossOrigin = 'Anonymous';
         img.setAttribute('src', images.thumbnails[index]);
-        img.onerror = function() {
+        img.onerror = function () {
             img.setAttribute('src', 'img/default.png'); // todo: image is borked, cleanup
         };
         imgDiv.appendChild(img);
+
+        img.onload = function () {
+            // read the bg color and set the color picker preview
+            // todo: stop storing bg in gradient format jesus
+            let bgColor = cssGradientToHex(images.bgColor);
+            if (bgColor) {
+                setInputValue(modalBgColorPickerInput, rgbToHex(bgColor))
+            }
+        }
+
         newCarousel.appendChild(imgDiv);
         for (let [i, image] of images.thumbnails.entries()) {
             if (i !== index) {
@@ -765,14 +785,90 @@ async function buildModal(url, title) {
                 let img = document.createElement('img');
                 img.crossOrigin = 'Anonymous';
                 img.setAttribute('src', image);
-                img.onerror = function() {
+                img.onerror = function () {
                     img.setAttribute('src', 'img/default.png'); // todo: cleanup
                 };
                 imgDiv.appendChild(img);
                 newCarousel.appendChild(imgDiv);
             }
         }
-        $('#carousel').flexCarousel({height: '180px'});
+        $('#carousel').flexCarousel({ height: '180px' });
+
+        // listen for carousel navigation to updade the bg color button preview
+        let fcNext = document.querySelector('.fc-next');
+        if (fcNext) {
+            fcNext.addEventListener('click', function () {
+                let cc = document.getElementById('customCarousel');
+                if (cc) {
+                    selectedImageSrc = customCarousel.children[0].src;
+                    let bgColor = getBgColor(customCarousel.children[0]);
+                    if (bgColor) {
+                        setInputValue(modalBgColorPickerInput, rgbToHex(bgColor))
+                    }
+                } else {
+                    let imageNodes = document.getElementsByClassName('fc-slide');
+                    for (let node of imageNodes) {
+                        // div with order "2" is the one being displayed by the carousel
+                        if (node.style.order === '2') {
+                            
+                            // sometimes the carousel puts images inside a <figure class="fc-image"> elem
+                            if (node.children[0].className === "fc-image") {
+                                //selectedImageSrc = node.children[0].children[0].src;
+                                let bgColor = getBgColor(node.children[0].children[0]);
+                                if (bgColor) {
+                                    //setInputValue(modalBgColorPickerInput, rgbToHex(bgColor))
+                                    setInputValue(modalBgColorPickerInput, rgbToHex(bgColor))
+                                }
+                            } else {
+                                //selectedImageSrc = node.children[0].src;
+                                let bgColor = getBgColor(node.children[0]);
+                                if (bgColor) {
+                                    setInputValue(modalBgColorPickerInput, rgbToHex(bgColor))
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        let fcPrev = document.querySelector('.fc-prev');
+        if (fcPrev) {
+            fcPrev.addEventListener('click', function () {
+                let cc = document.getElementById('customCarousel');
+                if (cc) {
+                    selectedImageSrc = customCarousel.children[0].src;
+                    let bgColor = getBgColor(customCarousel.children[0]);
+                    if (bgColor) {
+                        setInputValue(modalBgColorPickerInput, rgbToHex(bgColor))
+                    }
+                } else {
+                    let imageNodes = document.getElementsByClassName('fc-slide');
+                    for (let node of imageNodes) {
+                        // div with order "2" is the one being displayed by the carousel
+                        if (node.style.order === '2') {
+                            
+                            // sometimes the carousel puts images inside a <figure class="fc-image"> elem
+                            if (node.children[0].className === "fc-image") {
+                                //selectedImageSrc = node.children[0].children[0].src;
+                                let bgColor = getBgColor(node.children[0].children[0]);
+                                if (bgColor) {
+                                    //setInputValue(modalBgColorPickerInput, rgbToHex(bgColor))
+                                    setInputValue(modalBgColorPickerInput, rgbToHex(bgColor))
+                                }
+                            } else {
+                                //selectedImageSrc = node.children[0].src;
+                                let bgColor = getBgColor(node.children[0]);
+                                if (bgColor) {
+                                    setInputValue(modalBgColorPickerInput, rgbToHex(bgColor))
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
     }
 }
 
@@ -803,7 +899,7 @@ function openAllTabs() {
 
     if (folder) {
         let dials = [...folder.getElementsByClassName('tile')];
-        
+
         dials?.forEach(dial => {
             if (dial.href) {
                 browser.tabs.create({
@@ -821,19 +917,26 @@ function offscreenCanvasShim(w, h) {
     } catch (err) {
         // offscreencanvas not supported in ff
         let canvas = document.createElement('canvas');
-        canvas.width  = w;
+        canvas.width = w;
         canvas.height = h;
         return canvas;
     }
 }
 
-// calculate the bg color of a given image
+function colorsAreSimilar(color1, color2, tolerance = 2) {
+    return Math.abs(color1[0] - color2[0]) <= tolerance &&
+           Math.abs(color1[1] - color2[1]) <= tolerance &&
+           Math.abs(color1[2] - color2[2]) <= tolerance &&
+           Math.abs(color1[3] - color2[3]) <= tolerance;
+}
+
+// calculate the bg color of a given image. returns rgba array [r, g, b, a]
 // todo: duped in offscreen logic; punt this to a worker
 function getBgColor(img) {
     let imgWidth = img.naturalWidth;
     let imgHeight = img.naturalHeight;
     let canvas = offscreenCanvasShim(imgWidth, imgHeight);
-    let context = canvas.getContext('2d', {willReadFrequently:true});
+    let context = canvas.getContext('2d', { willReadFrequently: true });
     context.drawImage(img, 0, 0);
 
     let totalPixels = 0;
@@ -844,7 +947,7 @@ function getBgColor(img) {
     // background color algorithm
     // think the results are best when sampling 2 pixels deep from the edges
     // 1px gives bad results from image artifacts, more than 2px means we average away any natural framing/background in the image
-    
+
     // Sample the top and bottom edges
     for (let x = 0; x < imgWidth; x += 2) { // Sample every other pixel
         for (let y = 0; y < 2; y++) {
@@ -891,23 +994,70 @@ function getBgColor(img) {
     let mostCommonColor = null;
     let maxCount = 0;
     for (let colorKey in colorCounts) {
-        if (colorCounts[colorKey] > maxCount) {
-            maxCount = colorCounts[colorKey];
-            mostCommonColor = colorKey.split(',').map(Number);
+        let color = colorKey.split(',').map(Number);
+        let similarColorKey = Object.keys(colorCounts).find(key => {
+            let keyColor = key.split(',').map(Number);
+            return colorsAreSimilar(color, keyColor);
+        });
+    
+        if (similarColorKey && similarColorKey !== colorKey) {
+            colorCounts[similarColorKey] += colorCounts[colorKey];
+            delete colorCounts[colorKey];
+        }
+    
+        if (colorCounts[similarColorKey || colorKey] > maxCount) {
+            maxCount = colorCounts[similarColorKey || colorKey];
+            mostCommonColor = color;
         }
     }
 
-    // todo: clean this up - set background and color separately
-
     if (maxCount > totalPixels / 2) {
         mostCommonColor[3] = mostCommonColor[3] / 255; // Normalize alpha value
-        return(`linear-gradient(to bottom, rgba(${mostCommonColor[0]},${mostCommonColor[1]},${mostCommonColor[2]},${mostCommonColor[3]}) 50%, rgba(${mostCommonColor[0]},${mostCommonColor[1]},${mostCommonColor[2]},${mostCommonColor[3]}) 50%)`);
+        return [mostCommonColor[0], mostCommonColor[1], mostCommonColor[2], mostCommonColor[3]];
+
     } else {
         if (hasTransparentPixel) {
             avgColor[3] = 0; // Make the gradient transparent if any pixel is transparent
         }
-        return(`linear-gradient(to bottom, rgba(${avgColor[0]},${avgColor[1]},${avgColor[2]},${avgColor[3]}) 50%, rgba(${avgColor[0]},${avgColor[1]},${avgColor[2]},${avgColor[3]}) 50%)`);
+        return [avgColor[0], avgColor[1], avgColor[2], avgColor[3]];
     }
+}
+
+function rgbToHex(rgbArray) {
+    // todo: support alpha value
+    // Convert RGB values to hex color
+    let r = Math.round(rgbArray[0]);
+    let g = Math.round(rgbArray[1]);
+    let b = Math.round(rgbArray[2]);
+    return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+}
+
+function hexToRgba(hex) {
+    // Convert hex color to RGBA values
+    let r = parseInt(hex.slice(1, 3), 16);
+    let g = parseInt(hex.slice(3, 5), 16);
+    let b = parseInt(hex.slice(5, 7), 16);
+    let a = 1; // Default alpha value
+    return [r, g, b, a];
+}
+
+function rgbaToCssGradient(rgba) {
+    // Convert RGBA values to CSS gradient string
+    // gradient is used as a shortcut to set the background color at same time as image
+    return `linear-gradient(to bottom, rgba(${rgba[0]},${rgba[1]},${rgba[2]},${rgba[3]}) 50%, rgba(${rgba[0]},${rgba[1]},${rgba[2]},${rgba[3]}) 50%)`;
+}
+
+function hexToCssGradient(hex) {
+    // Convert hex color to CSS gradient string
+    let rgba = hexToRgba(hex);
+    return rgbaToCssGradient(rgba);
+}
+
+function cssGradientToHex(gradientString) {
+    // css string is in format: 'linear-gradient(to bottom, rgba(255,255,255,1) 50%, rgba(0,0,0,1) 50%)'
+    const rgbaString = gradientString.split('rgba(')[1].split(')')[0];
+    const [r, g, b, a] = rgbaString.split(',').map(Number);
+    return [r, g, b, a];
 }
 
 function saveBookmarkSettings() {
@@ -919,11 +1069,18 @@ function saveBookmarkSettings() {
     let thumbIndex = 0;
     let imageNodes = document.getElementsByClassName('fc-slide');
     let bgColor = null;
+    let colorPickerColor = modalBgColorPickerInput.value;
 
     let customCarousel = document.getElementById('customCarousel');
     if (customCarousel) {
         selectedImageSrc = customCarousel.children[0].src;
         bgColor = getBgColor(customCarousel.children[0]);
+        if (colorPickerColor && colorPickerColor !== rgbToHex(bgColor)) {
+            console.log("colors dont match, using the picker!")
+            bgColor = hexToCssGradient(colorPickerColor);
+        } else {
+            bgColor = rgbaToCssGradient(bgColor);
+        }
         targetNode.children[0].children[0].style.backgroundImage = `url('${selectedImageSrc}'), ${bgColor}`;
         //targetNode.children[0].children[0].style.backgroundColor = bgColor;
         browser.storage.local.get(url)
@@ -937,7 +1094,7 @@ function saveBookmarkSettings() {
                     thumbnails.push(selectedImageSrc);
                     thumbIndex = 0;
                 }
-                browser.storage.local.set({[newUrl]: {thumbnails, thumbIndex, bgColor}}).then(result => {
+                browser.storage.local.set({ [newUrl]: { thumbnails, thumbIndex, bgColor } }).then(result => {
                     //tabMessagePort.postMessage({updateCache: true, url: newUrl, i: thumbIndex});
                     if (title !== targetTileTitle) {
                         updateTitle()
@@ -956,6 +1113,13 @@ function saveBookmarkSettings() {
                     selectedImageSrc = node.children[0].src;
                     bgColor = getBgColor(node.children[0]);
                 }
+
+                if (colorPickerColor && colorPickerColor !== rgbToHex(bgColor)) {
+                    bgColor = hexToCssGradient(colorPickerColor);
+                } else {
+                    bgColor = rgbaToCssGradient(bgColor);
+                }
+
                 // update tile
                 targetNode.children[0].children[0].style.backgroundImage = `url('${selectedImageSrc}'), ${bgColor}`;
                 //targetNode.children[0].children[0].style.backgroundColor = bgColor;
@@ -969,7 +1133,7 @@ function saveBookmarkSettings() {
                     let thumbnails = result[url].thumbnails;
                     thumbIndex = thumbnails.indexOf(selectedImageSrc);
                     if (thumbIndex >= 0) {
-                        browser.storage.local.set({[newUrl]: {thumbnails, thumbIndex, bgColor}}).then(result => {
+                        browser.storage.local.set({ [newUrl]: { thumbnails, thumbIndex, bgColor } }).then(result => {
                             //tabMessagePort.postMessage({updateCache: true, url: newUrl, i: thumbIndex});
                             if (title !== targetTileTitle || url !== newUrl) {
                                 updateTitle()
@@ -996,9 +1160,9 @@ function saveBookmarkSettings() {
         //let order = sortable.toArray();
         //browser.storage.local.set({"sort":order});
         // todo: temp hack to match all until we start using bookmark ids
-        browser.bookmarks.search({url})
+        browser.bookmarks.search({ url })
             .then(bookmarks => {
-                if (bookmarks.length <= 1 && ( url !== newUrl) ) {
+                if (bookmarks.length <= 1 && (url !== newUrl)) {
                     // cleanup unused thumbnails
                     browser.storage.local.remove(url)
                 }
@@ -1041,14 +1205,14 @@ function layout(force = false) {
                 const x = box.transform.x + lastX - box.x;
                 const y = box.transform.y + lastY - box.y;
                 // Tween to 0 to remove the transforms
-                TweenMax.set(box.node, {x, y});
+                TweenMax.set(box.node, { x, y });
                 b.push(box.node);
             }
         }
         // layoutFolder true on folder open -- zero duration because we are just setting the positions of the dials, so whenever
         // a resize occurs the animation will start from the right position
         let duration = layoutFolder ? 0 : 0.7;
-        TweenMax.staggerTo(b, duration, {x: 0, y: 0, stagger:{amount: 0.2}, ease});
+        TweenMax.staggerTo(b, duration, { x: 0, y: 0, stagger: { amount: 0.2 }, ease });
         layoutFolder = false;
     }
 }
@@ -1074,14 +1238,14 @@ const animate = debounce(() => {
     const nodes = document.querySelectorAll(`[id="${currentParent}"] > .tile`);
     const total = nodes.length;
 
-    TweenMax.set(nodes, {lazy: true, x: "+=0"});
+    TweenMax.set(nodes, { lazy: true, x: "+=0" });
 
     for (let i = 0; i < total; i++) {
         let node = nodes[i];
         const transform = node._gsTransform;
         const x = node.offsetLeft;
         const y = node.offsetTop;
-        boxes[i] = {node, transform, x, y};
+        boxes[i] = { node, transform, x, y };
     }
 
     layout();
@@ -1104,7 +1268,7 @@ function resizeBackground(dataURI) {
                 let width = Math.round(this.width * ratio);
 
                 let canvas = document.createElement('canvas');
-                let ctx = canvas.getContext('2d', {willReadFrequently:true});
+                let ctx = canvas.getContext('2d', { willReadFrequently: true });
                 ctx.imageSmoothingEnabled = true;
 
                 canvas.width = width;
@@ -1139,7 +1303,7 @@ function resizeThumb(dataURI) {
                 let width = Math.round(this.width * ratio);
 
                 let canvas = document.createElement('canvas');
-                let ctx = canvas.getContext('2d', {willReadFrequently:true});
+                let ctx = canvas.getContext('2d', { willReadFrequently: true });
                 ctx.imageSmoothingEnabled = true;
 
                 canvas.width = width;
@@ -1190,6 +1354,14 @@ function addImage(image) {
 
         customCarousel.appendChild(preview);
         modalImgContainer.appendChild(customCarousel);
+
+        // set the color picker to the new image bg color
+        preview.onload = function() {
+            let bgColor = getBgColor(preview);
+            if (bgColor) {
+                setInputValue(modalBgColorPickerInput, rgbToHex(bgColor))
+            }
+        };
     }
 }
 
@@ -1322,7 +1494,7 @@ function applySettings() {
         if (settings.wallpaperSrc) {
             imgPreview.setAttribute('src', settings.wallpaperSrc);
             //imgPreview.style.display = 'block';
-            imgPreview.onload = function(e) {
+            imgPreview.onload = function (e) {
                 if (settings.wallpaper) {
                     backgroundColorContainer.style.display = "none";
                     previewContainer.style.opacity = '1';
@@ -1335,11 +1507,11 @@ function applySettings() {
                     switchesContainer.style.transform = `translateY(-${previewContainer.offsetHeight}px)`;
                 }
             }
-            imgPreview.onerror = function(e) {
+            imgPreview.onerror = function (e) {
                 // reset to default on error with user image
                 settings.wallpaperSrc = 'img/bg.jpg';
                 imgPreview.setAttribute('src', settings.wallpaperSrc);
-                browser.storage.local.set({settings});
+                browser.storage.local.set({ settings });
             }
         }
 
@@ -1365,7 +1537,7 @@ function saveSettings() {
 
     applySettings();
 
-    browser.storage.local.set({settings})
+    browser.storage.local.set({ settings })
         .then(() => {
             /*
             settingsToast.style.opacity = "1";
@@ -1461,16 +1633,16 @@ window.addEventListener("mousedown", e => {
                     openSettings();
                     break;
                 case 'newTab':
-                    browser.tabs.create({url: targetTileHref});
+                    browser.tabs.create({ url: targetTileHref });
                     break;
                 case 'newBackgroundTab':
-                        browser.tabs.create({url: targetTileHref, active: false});
-                        break;
+                    browser.tabs.create({ url: targetTileHref, active: false });
+                    break;
                 case 'newWin':
-                    browser.windows.create({"url": targetTileHref});
+                    browser.windows.create({ "url": targetTileHref });
                     break;
                 case 'newPrivate':
-                    browser.windows.create({"url": targetTileHref, "incognito": true});
+                    browser.windows.create({ "url": targetTileHref, "incognito": true });
                     break;
                 case 'openAll':
                     openAllTabs();
@@ -1558,6 +1730,10 @@ createDialModalURL.addEventListener('keydown', e => {
     }
 });
 
+modalImgBtn.addEventListener('click', function () {
+    document.getElementById('modalImgFile').click();
+});
+
 modalImgInput.onchange = function () {
     readImage(this).then(image => {
         resizeThumb(image).then(resizedImage => {
@@ -1567,26 +1743,26 @@ modalImgInput.onchange = function () {
 };
 
 
-maxColsInput.oninput = function(e) {
+maxColsInput.oninput = function (e) {
     saveSettings()
 }
 
-dialSizeInput.oninput = function(e) {
+dialSizeInput.oninput = function (e) {
     saveSettings()
 }
 
-dialRatioInput.oninput = function(e) {
+dialRatioInput.oninput = function (e) {
     saveSettings()
 }
 
-defaultSortInput.oninput = function(e) {
+defaultSortInput.oninput = function (e) {
     if (settings.defaultSort !== defaultSortInput.value) {
         processRefresh();
         saveSettings()
     }
 }
 
-wallPaperEnabled.oninput = function(e) {
+wallPaperEnabled.oninput = function (e) {
     saveSettings()
 }
 
@@ -1602,27 +1778,27 @@ textColor_picker.onchange = function () {
     }
 };
 
-showTitlesInput.oninput = function(e) {
+showTitlesInput.oninput = function (e) {
     saveSettings()
 }
 
-showCreateDialInput.oninput = function(e) {
+showCreateDialInput.oninput = function (e) {
     saveSettings()
 }
 
-showFoldersInput.oninput = function(e) {
+showFoldersInput.oninput = function (e) {
     saveSettings()
 }
 
-showClockInput.oninput = function(e) {
+showClockInput.oninput = function (e) {
     saveSettings()
 }
 
-rememberFolderInput.oninput = function(e) {
+rememberFolderInput.oninput = function (e) {
     saveSettings()
 }
 
-showSettingsBtnInput.oninput = function(e) {
+showSettingsBtnInput.oninput = function (e) {
     saveSettings()
 }
 
@@ -1646,12 +1822,63 @@ imgInput.onchange = function () {
     readURL(this);
 };
 
-previewOverlay.onclick = function() {
+previewOverlay.onclick = function () {
     imgInput.click();
 }
 
-function prepareExport() {
-    browser.storage.local.get(null).then(function(items) {
+// add image from url button clicked, show the input field
+modalImgUrlBtn.addEventListener('click', function (event) {
+    event.preventDefault();
+    document.getElementById('modalBtnContainer').style.display = 'none';
+    document.getElementById('imageUrlContainer').style.display = 'flex';
+    modalImageURLInput.focus();
+});
+
+// fetch the image from the url
+fetchImageButton.addEventListener('click', function (event) {
+    event.preventDefault();
+    const imageUrl = modalImageURLInput.value.trim();
+    if (imageUrl) {
+        resizeThumb(imageUrl).then(resizedImage => {
+            addImage(resizedImage);
+        }).catch(error => {
+            // todo: show error message to user in the modal
+            console.error('Error adding image from URL:', error);
+        });
+    }
+});
+
+modalBgColorPickerBtn.addEventListener('click', function () {
+    // todo: support alpha
+    // eyedropper currently chrome on windows/mac only
+    if ('EyeDropper' in window) {
+        const eyeDropper = new EyeDropper();
+        eyeDropper.open().then(result => {
+            const color = result.sRGBHex;
+            setInputValue(modalBgColorPickerInput, color);
+        }).catch(error => {
+            console.log('Error opening color picker:', error);
+        });
+    } else {
+        document.getElementById('modalBgColorPickerInput').click();
+    }
+});
+
+modalBgColorPickerInput.addEventListener('input', function () {
+    const color = this.value; // in hex
+    // set the our button color to match
+    modalBgColorPreview.style.fill = color;
+});
+
+// helper function for when we set the color picker value programmatically to update our button
+function setInputValue(inputElement, value) {
+    inputElement.value = value;
+    inputElement.dispatchEvent(new Event('input'));
+}
+
+
+function prepareExportV1() {
+    browser.storage.local.get(null).then(function (items) {
         // filter out unused thumbnails to keep exported file efficient
         let filteredItems = {};
         for (const [key, value] of Object.entries(items)) {
@@ -1677,9 +1904,9 @@ function prepareExport() {
         }
 
         // save as file; requires downloads permission
-        const blob = new Blob([JSON.stringify(filteredItems)], {type: 'application/json'})
+        const blob = new Blob([JSON.stringify(filteredItems)], { type: 'application/json' })
         const today = new Date();
-        const dateString = `${today.getFullYear()}-${today.getMonth()+1}-${today.getDate()}`;
+        const dateString = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
 
         exportBtn.setAttribute('href', URL.createObjectURL(blob));
         exportBtn.download = `yasd-export-${dateString}.json`;
@@ -1688,7 +1915,101 @@ function prepareExport() {
     });
 }
 
-importExportBtn.onclick = function() {
+function prepareExport() {
+    // exports yasd json file that includes all bookmarks within the root speed dial folder, along with the yasd settings and thumbnails from storage
+    // in the following format:
+
+    /*
+    const yasdJson = {
+        "yasd": {
+            "bookmarks":[
+                {"id":123,"title":"Site Title","url":"https://www.website.com","index":1,"folderid":3}
+            ],
+            "folders":[
+                {"id":123,"title":"Folder Title","index":1}
+            ],
+            "settings":{
+                "showClock":true,
+                "backgroundImage":""
+            },
+            "dials": [
+                {"https://361114779041.signin.aws.amazon.com/console":{"thumbnails":["data:image/webp;asdfasdf.png","sdfsdfsdfsdfsdf"],"thumbIndex":0,"bgColor":"red"}},
+                {"https://361114779041.signin.aws.amazon.com/console":{"thumbnails":["data:image/webp;asdfasdf.png","sdfsdfsdfsdfsdf"],"thumbIndex":0,"bgColor":"red"}}
+            ]
+        }
+    }
+    */
+
+    let yasdJson = {
+        yasd: {
+            version: 3,
+            bookmarks: [],
+            folders: [],
+            settings: {},
+            dials: []
+        }
+    };
+
+    // Get bookmarks and folders within the speed dial folder
+    browser.bookmarks.getSubTree(speedDialId).then(bookmarkTreeNodes => {
+        function traverseBookmarks(nodes, parentId = null) {
+            nodes.forEach(node => {
+                if (node.url) {
+                    yasdJson.yasd.bookmarks.push({
+                        id: node.id,
+                        title: node.title,
+                        url: node.url,
+                        index: node.index,
+                        folderid: parentId
+                    });
+                } else {
+                    yasdJson.yasd.folders.push({
+                        id: node.id,
+                        title: node.title,
+                        index: node.index
+                    });
+                    if (node.children) {
+                        traverseBookmarks(node.children, node.id);
+                    }
+                }
+            });
+        }
+        traverseBookmarks(bookmarkTreeNodes[0].children);
+
+        // Get YASD settings and thumbnails from storage
+        browser.storage.local.get(null).then(items => {
+            for (const [key, value] of Object.entries(items)) {
+                if (key.startsWith('settings')) {
+                    yasdJson.yasd.settings[key] = value;
+                } else if (key.startsWith('http')) {
+                    let thumbnails = [];
+                    if (value.thumbnails && value.thumbnails.length) {
+                        thumbnails.push(value.thumbnails[value.thumbIndex]);
+                    }
+                    yasdJson.yasd.dials.push({
+                        [key]: {
+                            thumbnails: thumbnails,
+                            thumbIndex: 0,
+                            bgColor: value.bgColor
+                        }
+                    });
+                }
+            }
+
+            // Save as file; requires downloads permission
+            const blob = new Blob([JSON.stringify(yasdJson)], { type: 'application/json' });
+            const today = new Date();
+            const dateString = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}-v3`;
+
+            exportBtn.setAttribute('href', URL.createObjectURL(blob));
+            exportBtn.download = `yasd-export-${dateString}.json`;
+            exportBtn.classList.remove('disabled');
+        });
+    });
+}
+
+
+importExportBtn.onclick = function () {
     hideSettings();
     importExportStatus.innerText = "";
     exportBtn.classList.add('disabled');
@@ -1696,171 +2017,45 @@ importExportBtn.onclick = function() {
     modalShowEffect(importExportModalContent, importExportModal);
 }
 
-helpBtn.onclick = function() {
+helpBtn.onclick = function () {
     browser.tabs.create({ url: helpUrl });
 }
 
-importFileLabel.onclick = function() {
+importFileLabel.onclick = function () {
     importFileInput.click();
+}
+
+function parseJson(event) {
+    try {
+        return JSON.parse(event.target.result);
+    } catch (err) {
+        console.log(err);
+        importExportStatus.innerText = "Error! Unable to parse file.";
+        return null;
+    }
 }
 
 importFileInput.onchange = function (event) {
     let filereader = new FileReader();
 
     filereader.onload = function (event) {
-        let json = null;
-        if (event && event.target) {
-            try {
-                json = JSON.parse(event.target.result);
-            } catch (err) {
-                console.log(err)
-                importExportStatus.innerText = "Error! Unable to parse file."
-            }
-        }
+        let json = parseJson(event);
+        if (!json) return;
 
-        // todo: improve error handling
-        if (json && json.dials && json.groups) {
-            // import from SD2
-            let bookmarks = json.dials.map(dial => ({
-                title: dial.title,
-                url: dial.url,
-                idgroup: dial.idgroup
-            }));
+        // quiet the listeners so yasd doesnt go crazy
+        chrome.runtime.sendMessage({ target: 'background', type: 'toggleBookmarkCreatedListener', data: { enable: false } });
+        //todo: proceed once we get a response
+        //todo: re-enable listener when import complete
+        //todo: add an option to fetch new thumbnails or use the included ones
 
-            let groups = json.groups.map(group => ({
-                id: group.id,
-                title: group.title
-            }));
-
-            // clear previous settings and import
-            // todo: we dont wana nuke everything if we dont end up proceeding with the import
-            chrome.storage.local.clear().then(() => {
-
-                // Create groups and bookmarks
-                let groupPromises = groups.map(group => {
-                    if (group.id === 0) {
-                        return Promise.resolve(speedDialId);
-                    } else {
-                        return chrome.bookmarks.search({title: group.title}).then(existingGroups => {
-                            const matchingGroups = existingGroups.filter(group => group.parentId === speedDialId);
-                            if (matchingGroups.length > 0) {
-                                return matchingGroups[0].id;
-                            } else {
-                                return chrome.bookmarks.create({
-                                    title: group.title,
-                                    parentId: speedDialId
-                                }).then(node => node.id);
-                            }
-                        });
-                    }
-                });
-
-                Promise.all(groupPromises).then(groupIds => {
-                    bookmarks.forEach(bookmark => {
-                        let parentId = groupIds[bookmark.idgroup];
-                        chrome.bookmarks.search({url: bookmark.url}).then(existingBookmarks => {
-                            let existsInFolder = existingBookmarks.some(b => b.parentId === parentId);
-                            if (!existsInFolder) {
-                                chrome.bookmarks.create({
-                                    title: bookmark.title,
-                                    url: bookmark.url,
-                                    parentId: parentId
-                                });
-                            }
-                        });
-                    });
-
-                    hideModals();
-                    // refresh page
-                    processRefresh();
-                }).catch(err => {
-                    console.log(err)
-                    importExportStatus.innerText = "Error! Unable to create folders."
-                });
-
-            }).catch(err => {
-                console.log(err)
-                importExportStatus.innerText = "Something went wrong. Please try again"
-            });
-        } else if (json && json.db) {
-            // import from FVD
-            let bookmarks = json.db.dials.map(dial => ({
-                title: dial.title,
-                url: dial.url,
-                groupId: dial.group_id
-            }));
-        
-            let groups = json.db.groups.map(group => ({
-                id: group.id,
-                title: group.name
-            }));
-        
-            // clear previous settings and import
-            chrome.storage.local.clear().then(() => {
-                // Create groups and bookmarks
-                let groupPromises = groups.map(group => {
-                    if (group.id === 1) {
-                        return Promise.resolve(speedDialId);
-                    } else {
-                        return chrome.bookmarks.search({title: group.title}).then(existingGroups => {
-                            const matchingGroups = existingGroups.filter(group => group.parentId === speedDialId);
-                            if (matchingGroups.length > 0) {
-                                return matchingGroups[0].id;
-                            } else {
-                                return chrome.bookmarks.create({
-                                    title: group.title,
-                                    parentId: speedDialId
-                                }).then(node => node.id);
-                            }
-                        });
-                    }
-                });
-        
-                Promise.all(groupPromises).then(groupIds => {
-                    bookmarks.forEach(bookmark => {
-                        let parentId = groupIds[bookmark.groupId];
-                        chrome.bookmarks.search({url: bookmark.url}).then(existingBookmarks => {
-                            let existsInFolder = existingBookmarks.some(b => b.parentId === parentId);
-                            if (!existsInFolder) {
-                                chrome.bookmarks.create({
-                                    title: bookmark.title,
-                                    url: bookmark.url,
-                                    parentId: parentId
-                                });
-                            }
-                        });
-                    });
-        
-                    hideModals();
-                    // refresh page
-                    processRefresh();
-                }).catch(err => {
-                    console.log(err);
-                    importExportStatus.innerText = "Error! Unable to create folders.";
-                });
-        
-            }).catch(err => {
-                console.log(err);
-                importExportStatus.innerText = "Something went wrong. Please try again";
-            });
-
-        } else if (json) {
-            // import from yasd
-            // clear previous settings and import
-            browser.storage.local.clear().then(() => {
-                browser.storage.local.set(json).then(result => {
-                    hideModals();
-                    // refresh page
-                    //tabMessagePort.postMessage({handleImport: true});
-                    processRefresh();
-                }).catch(err => {
-                    console.log(err)
-                    importExportStatus.innerText = "Error! Unable to parse file."
-                });
-            }).catch(err => {
-                console.log(err)
-                importExportStatus.innerText = "Error! Please try again"
-            })
+        if (json.dials && json.groups) {
+            importFromSD2(json);
+        } else if (json.db) {
+            importFromFVD(json);
+        } else if (json.yasd) {
+            importFromYASD(json);
+        } else {
+            importFromOldYASD(json);
         }
     };
 
@@ -1868,6 +2063,221 @@ importFileInput.onchange = function (event) {
         filereader.readAsText(event.target.files[0]);
     }
 };
+
+function importFromSD2(json) {
+    let bookmarks = json.dials.map(dial => ({
+        title: dial.title,
+        url: dial.url,
+        idgroup: dial.idgroup
+    }));
+
+    let groups = json.groups.map(group => ({
+        id: group.id,
+        title: group.title
+    }));
+
+    chrome.storage.local.clear().then(() => {
+        // Create groups and bookmarks
+        let groupPromises = groups.map(group => {
+            if (group.id === 0) {
+                return Promise.resolve(speedDialId);
+            } else {
+                return chrome.bookmarks.search({ title: group.title }).then(existingGroups => {
+                    const matchingGroups = existingGroups.filter(group => group.parentId === speedDialId);
+                    if (matchingGroups.length > 0) {
+                        return matchingGroups[0].id;
+                    } else {
+                        return chrome.bookmarks.create({
+                            title: group.title,
+                            parentId: speedDialId
+                        }).then(node => node.id);
+                    }
+                });
+            }
+        });
+
+        Promise.all(groupPromises).then(groupIds => {
+            bookmarks.forEach(bookmark => {
+                let parentId = groupIds[bookmark.idgroup];
+                chrome.bookmarks.search({ url: bookmark.url }).then(existingBookmarks => {
+                    let existsInFolder = existingBookmarks.some(b => b.parentId === parentId);
+                    if (!existsInFolder) {
+                        chrome.bookmarks.create({
+                            title: bookmark.title,
+                            url: bookmark.url,
+                            parentId: parentId
+                        });
+                    }
+                });
+            });
+
+            hideModals();
+            // refresh page
+            processRefresh();
+        }).catch(err => {
+            console.log(err)
+            importExportStatus.innerText = "SD2 import error! Unable to create folders."
+        });
+
+    }).catch(err => {
+        console.log(err)
+        importExportStatus.innerText = "Something went wrong. Please try again"
+    });
+}
+
+function importFromFVD(json) {
+    let bookmarks = json.db.dials.map(dial => ({
+        title: dial.title,
+        url: dial.url,
+        groupId: dial.group_id
+    }));
+
+    let groups = json.db.groups.map(group => ({
+        id: group.id,
+        title: group.name
+    }));
+
+    // clear previous settings and import
+    chrome.storage.local.clear().then(() => {
+        // Create groups and bookmarks
+        let groupPromises = groups.map(group => {
+            if (group.id === 1) {
+                return Promise.resolve(speedDialId);
+            } else {
+                return chrome.bookmarks.search({ title: group.title }).then(existingGroups => {
+                    const matchingGroups = existingGroups.filter(group => group.parentId === speedDialId);
+                    if (matchingGroups.length > 0) {
+                        return matchingGroups[0].id;
+                    } else {
+                        return chrome.bookmarks.create({
+                            title: group.title,
+                            parentId: speedDialId
+                        }).then(node => node.id);
+                    }
+                });
+            }
+        });
+
+        Promise.all(groupPromises).then(groupIds => {
+            bookmarks.forEach(bookmark => {
+                let parentId = groupIds[bookmark.groupId];
+                chrome.bookmarks.search({ url: bookmark.url }).then(existingBookmarks => {
+                    let existsInFolder = existingBookmarks.some(b => b.parentId === parentId);
+                    if (!existsInFolder) {
+                        chrome.bookmarks.create({
+                            title: bookmark.title,
+                            url: bookmark.url,
+                            parentId: parentId
+                        });
+                    }
+                });
+            });
+
+            hideModals();
+            // refresh page
+            processRefresh();
+        }).catch(err => {
+            console.log(err);
+            importExportStatus.innerText = "FVD import error! Unable to create folders.";
+        });
+
+    }).catch(err => {
+        console.log(err);
+        importExportStatus.innerText = "Something went wrong. Please try again";
+    });
+}
+
+function importFromYASD(json) {
+    // import from yasd v3 format:
+    let yasdData = json.yasd;
+        
+    // Clear previous settings and import new data
+    browser.storage.local.clear().then(() => {
+        // Store settings
+        if (yasdData.settings) {
+            browser.storage.local.set({ settings: yasdData.settings });
+        }
+
+        // Store dials
+        let dialPromises = yasdData.dials.map(dial => {
+            let url = Object.keys(dial)[0];
+            let dialData = dial[url];
+            return browser.storage.local.set({ [url]: dialData });
+        });
+
+        // Create folders and get their IDs
+        let folderPromises = yasdData.folders.sort((a, b) => a.index - b.index).map(folder => {
+            return browser.bookmarks.search({ title: folder.title }).then(existingFolders => {
+                const matchingFolders = existingFolders.filter(f => f.parentId === speedDialId);
+                if (matchingFolders.length > 0) {
+                    return { oldId: folder.id, newId: matchingFolders[0].id };
+                } else {
+                    return browser.bookmarks.create({
+                        title: folder.title,
+                        parentId: speedDialId
+                    }).then(node => {
+                        return { oldId: folder.id, newId: node.id };
+                    });
+                }
+            });
+        });
+
+        Promise.all(folderPromises).then(folderIdMappings => {
+            let folderIdMap = {};
+            folderIdMappings.forEach(mapping => {
+                folderIdMap[mapping.oldId] = mapping.newId;
+            });
+
+            // Create bookmarks using the new folder IDs
+            let bookmarkPromises = yasdData.bookmarks.map(bookmark => {
+                let parentId = folderIdMap[bookmark.folderid] || speedDialId;
+                return browser.bookmarks.search({ url: bookmark.url }).then(existingBookmarks => {
+                    let existsInFolder = existingBookmarks.some(b => b.parentId === parentId);
+                    if (!existsInFolder) {
+                        return browser.bookmarks.create({
+                            title: bookmark.title,
+                            url: bookmark.url,
+                            parentId: parentId
+                        });
+                    }
+                });
+            });
+
+            Promise.all([...dialPromises, ...bookmarkPromises]).then(() => {
+                hideModals();
+                // Refresh page
+                processRefresh();
+            }).catch(err => {
+                console.log(err);
+                importExportStatus.innerText = "Error! Unable to import bookmarks and dials.";
+            });
+        }).catch(err => {
+            console.log(err);
+            importExportStatus.innerText = "Error! Unable to create folders.";
+        });
+    }).catch(err => {
+        console.log(err);
+        importExportStatus.innerText = "Something went wrong. Please try again.";
+    });
+}
+
+function importFromOldYASD(json) {
+    // import from old yasd format
+    browser.storage.local.clear().then(() => {
+        browser.storage.local.set(json).then(result => {
+            hideModals();
+            // refresh page
+            //tabMessagePort.postMessage({handleImport: true});
+            processRefresh();
+        }).catch(err => {
+            console.log(err)
+            importExportStatus.innerText = "Error! Unable to parse file."
+        });
+    }).catch(err => {
+        console.log(err)
+        importExportStatus.innerText = "Error! Please try again"
+    })
+}
 
 // native handlers for folder tab target
 function dragenterHandler(ev) {
@@ -1956,10 +2366,10 @@ function onEndHandler(evt) {
         // if the sibling's parent doesnt match the parent we are moving to discard this sibling
         // can occur when dropping onto a non sortable target (like folder name)
         if (newSiblingParentId && newSiblingParentId !== toParentId) {
-            newSiblingId = -1 ;
+            newSiblingId = -1;
         }
 
-        if ((fromParentId && toParentId && fromParentId !== toParentId) || oldIndex !== newIndex ) {
+        if ((fromParentId && toParentId && fromParentId !== toParentId) || oldIndex !== newIndex) {
             moveBookmark(id, fromParentId, toParentId, oldIndex, newIndex, newSiblingId)
         }
     } else if (evt && evt.clone.classList.contains('folderTitle')) {
@@ -1990,7 +2400,7 @@ const processRefresh = debounce(() => {
 
 function getSpeedDialId() {
     return new Promise((resolve, reject) => {
-        chrome.bookmarks.search({title: 'Speed Dial'}).then(result => {
+        chrome.bookmarks.search({ title: 'Speed Dial' }).then(result => {
             if (result) {
                 for (let bookmark of result) {
                     if (!bookmark.url) {
@@ -2009,7 +2419,7 @@ function getSpeedDialId() {
                 })
                 resolve()
             } else {
-                chrome.bookmarks.create({title: 'Speed Dial'}).then(result => {
+                chrome.bookmarks.create({ title: 'Speed Dial' }).then(result => {
                     speedDialId = result.id;
                     resolve();
                 }, error => {
@@ -2040,7 +2450,7 @@ function init() {
         elem.innerText = browser.i18n.getMessage(elem.dataset.locale)
     })
 
-    
+
 
     // init what used to be background work"
     // build a thumbnail cache of url:thumbUrl pairs

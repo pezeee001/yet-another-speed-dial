@@ -31,17 +31,20 @@ async function handleMessages(message) {
   
 	// Dispatch the message to an appropriate handler.
 	switch (message.type) {
-	  case 'refreshThumbs':
-		  handleManualRefresh(message.data);
-		break;
-	case 'refreshAllThumbs':
-		handleRefreshAll(message.data);
-		break;
-	  case 'saveThumbnails':
-		  handleOffscreenFetchDone(message.data);
-		break;
-	  default:
-		console.warn(`Unexpected message type received: '${message.type}'.`);
+		case 'refreshThumbs':
+			handleManualRefresh(message.data);
+			break;
+		case 'refreshAllThumbs':
+			handleRefreshAll(message.data);
+			break;
+		case 'saveThumbnails':
+			handleOffscreenFetchDone(message.data);
+			break;
+		case 'toggleBookmarkCreatedListener':
+			toggleBookmarkCreatedListener(message.data);
+			break;
+		default:
+			console.warn(`Unexpected message type received: '${message.type}'.`);
 	}
 }
 
@@ -118,6 +121,15 @@ function handleContextMenuClick(info, tab) {
 
 
 // MESSAGE HANDLERS //
+
+// Function to enable or disable the bookmarks.onCreated listener
+function toggleBookmarkCreatedListener(data) {
+    if (data.enable) {
+        chrome.bookmarks.onCreated.addListener(handleBookmarkChanged);
+    } else {
+        chrome.bookmarks.onCreated.removeListener(handleBookmarkChanged);
+    }
+}
 
 async function handleOffscreenFetchDone(data) {
 	//console.log(data);
@@ -207,7 +219,7 @@ function handleInstalled(details) {
         chrome.runtime.setUninstallURL("https://forms.gle/6vJPx6eaMV5xuxQk9");
         // todo: detect existing speed dial folder
     } else if (details.reason === 'update') {
-		if (details.previousVersion < '3.4') {
+		if (details.previousVersion < '3.3') {
 			const url = chrome.runtime.getURL("updated.html");
         	chrome.tabs.create({ url });
 		}
